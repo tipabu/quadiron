@@ -779,17 +779,20 @@ void FecCode<T>::decode_prepare(
     off_t offset,
     vec::Vector<T>& words)
 {
+    const std::vector<PropsIterator>& props = context.iterator_props;
     const vec::Vector<T>& fragments_ids = context.get_fragments_id();
     for (unsigned i = 0; i < this->n_data; ++i) {
         const int j = fragments_ids.get(i);
-        auto data = props[j].get(offset);
-
-        // Check if the symbol is a special case whick is marked by `OOR_MARK`,
-        // i.e. true. Note: this check is necessary when word_size is not large
-        // enough to cover all symbols of the field. Following check is used for
-        // FFT over FNT where the single special case symbol equals card - 1
-        if (data == OOR_MARK) {
-            words.set(i, this->gf->card() - 1);
+        if (props[j].is_marked(offset)) {
+            // Check if the symbol is a special case whick is marked by
+            // `OOR_MARK`, i.e. true. Note: this check is necessary when
+            // word_size is not large enough to cover all symbols of the field.
+            // Following check is used for FFT over FNT where the single special
+            // case symbol equals card - 1
+            if (props[j].curr_mark() == OOR_MARK) {
+                words.set(i, this->gf->card() - 1);
+            }
+            props[j].next();
         }
     }
 }
@@ -1050,10 +1053,11 @@ void FecCode<T>::decode(
 template <typename T>
 void FecCode<T>::decode_prepare(
     const DecodeContext<T>& context,
-    const std::vector<Properties>& props,
     off_t offset,
     vec::Buffers<T>& words)
 {
+    const std::vector<PropsIterator>& props = context.iterator_props;
+
     // FIXME: could we integrate this preparation into vec::pack?
     // It will reduce a loop on all data
     const vec::Vector<T>& fragments_ids = context.get_fragments_id();
@@ -1069,23 +1073,23 @@ void FecCode<T>::decode_prepare(
         if (type == FecType::SYSTEMATIC) {
             frag_id -= this->n_data;
         }
-        // loop over marked symbols
-        for (auto const& data : props[frag_id].get_map()) {
-            off_t loc_offset = data.first;
-            if (loc_offset >= offset && loc_offset < offset_max) {
-                // As loc.offset := offset + j
-                const size_t j = (loc_offset - offset);
 
-                // Check if the symbol is a special case whick is marked by
-                // `OOR_MARK`.
-                // Note: this check is necessary when word_size is not large
-                // enough to cover all symbols of the field. Following check is
-                // used for FFT over FNT where the single special case symbol
-                // equals card - 1
-                if (data.second == OOR_MARK) {
-                    chunk[j] = thres;
-                }
+        // loop over marked symbols
+        while (props[frag_id].in_range(offset, offset_max)) {
+            const size_t loc_offset = props[frag_id].curr_loc();
+            // As loc.offset := offset + j
+            const size_t j = (loc_offset - offset);
+
+            // Check if the symbol is a special case whick is marked by
+            // `OOR_MARK`.
+            // Note: this check is necessary when word_size is not large
+            // enough to cover all symbols of the field. Following check is
+            // used for FFT over FNT where the single special case symbol
+            // equals card - 1
+            if (props[frag_id].curr_mark() == OOR_MARK) {
+                chunk[j] = thres;
             }
+            props[frag_id].next();
         }
     }
 }
