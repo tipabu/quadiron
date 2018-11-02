@@ -41,6 +41,7 @@
 #include "fft_base.h"
 #include "gf_base.h"
 #include "gf_nf4.h"
+#include "property.h"
 #include "vec_poly.h"
 #include "vec_zero_ext.h"
 
@@ -67,6 +68,7 @@ class DecodeContext {
         fft::FourierTransform<T>& fft,
         fft::FourierTransform<T>& fft_2k,
         const vec::Vector<T>& fragments_ids,
+        const std::vector<Properties>& input_props,
         const vec::Vector<T>& vx,
         const int k,
         const int n,
@@ -86,6 +88,9 @@ class DecodeContext {
         this->max_n_2k = (this->n > this->len_2k) ? this->n : this->len_2k;
 
         this->fragments_ids = &fragments_ids;
+        for (auto const& props : input_props) {
+            iterator_props.push_back(PropsIterator(props));
+        }
 
         A = std::make_unique<vec::Poly<T>>(gf, n);
         A_fft_2k = std::make_unique<vec::Vector<T>>(gf, len_2k);
@@ -266,6 +271,7 @@ class DecodeContext {
 
   public:
     int vx_zero;
+    std::vector<PropsIterator> iterator_props;
 
   private:
     unsigned k;
