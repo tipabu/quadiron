@@ -69,8 +69,11 @@ std::istream& operator>>(std::istream& is, Properties& props)
 
 std::ostream& operator<<(std::ostream& os, const Properties& props)
 {
-    for (auto& kv : props.props) {
-        os << kv.first << " = " << kv.second << '\n';
+    std::vector<size_t> keys = props.get_keys();
+    std::vector<uint32_t> values = props.get_values();
+
+    for (size_t id = 0; id < keys.size(); ++id) {
+        os << keys[id] << " = " << values[id] << '\n';
     }
     return os;
 }
