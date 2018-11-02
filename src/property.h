@@ -35,6 +35,7 @@
 #include <iosfwd>
 #include <string>
 #include <vector>
+#include <assert.h>
 
 #include <sys/types.h>
 
@@ -85,6 +86,63 @@ class Properties {
 
     friend std::istream& operator>>(std::istream& is, Properties& props);
     friend std::ostream& operator<<(std::ostream& os, const Properties& props);
+};
+
+/** Iterator on Properties
+ * @note it assumes that items are stored in an increasing order of their keys.
+ * For reading, items are retrieved in the same order. Each item is retrieved
+ * once.
+ */
+class PropsIterator {
+  public:
+    PropsIterator(const Properties& props)
+    {
+        index = 0;
+        m_key = 0;
+        m_val = 0;
+
+        keys = props.get_keys();
+        values = props.get_values();
+        items_nb = keys.size();
+
+        assert(keys.size() == values.size());
+    }
+
+    inline const size_t& curr_loc() const
+    {
+        return (index < items_nb) ? keys.at(index) : m_key;
+    }
+
+    inline const uint32_t& curr_mark() const
+    {
+        return (index < items_nb) ? values.at(index) : m_val;
+    }
+
+    inline bool is_marked(const size_t loc) const
+    {
+        return (index < items_nb) ? (keys.at(index) == loc) : false;
+    }
+
+    inline bool next() const
+    {
+        index++;
+        return (index < items_nb);
+    }
+
+    inline bool in_range(const size_t min, const size_t max) const
+    {
+        return (index < items_nb) ? (keys[index] >= min && keys[index] < max)
+                                  : false;
+    }
+
+  private:
+    std::vector<size_t> keys;
+    std::vector<uint32_t> values;
+
+    mutable size_t index;
+    size_t items_nb;
+    size_t m_key;
+    uint32_t m_val;
 };
 
 } // namespace quadiron
