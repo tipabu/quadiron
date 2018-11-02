@@ -127,11 +127,8 @@ class RsGf2nFft : public FecCode<T> {
         assert(false);
     }
 
-    void decode_prepare(
-        const DecodeContext<T>&,
-        const std::vector<Properties>&,
-        off_t,
-        vec::Vector<T>&) override
+    void
+    decode_prepare(const DecodeContext<T>&, off_t, vec::Vector<T>&) override
     {
         // nothing to do
     }

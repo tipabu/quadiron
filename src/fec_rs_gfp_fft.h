@@ -210,21 +210,22 @@ class RsGfpFft : public FecCode<T> {
      */
     void decode_prepare(
         const DecodeContext<T>& context,
-        const std::vector<Properties>& props,
         off_t offset,
         vec::Vector<T>& words) override
     {
+        const std::vector<PropsIterator>& props = context.iterator_props;
         const vec::Vector<T>& fragments_ids = context.get_fragments_id();
         int k = this->n_data; // number of fragments received
         for (int i = 0; i < k; ++i) {
             const int j = fragments_ids.get(i);
-            auto data = props[j].get(offset);
-
-            // Check if the symbol is a special case whick is marked by
-            // `OOR_MARK`. In encoded data, its value was subtracted by the
-            // predefined limite_value. This operation restore its value.
-            if (data == OOR_MARK) {
-                words.set(i, words.get(i) + limit_value);
+            if (props[j].is_marked(offset)) {
+                // Check if the symbol is a special case whick is marked by
+                // `OOR_MARK`. In encoded data, its value was subtracted by the
+                // predefined limite_value. This operation restore its value.
+                if (props[j].curr_mark() == OOR_MARK) {
+                    words.set(i, words.get(i) + limit_value);
+                }
+                props[j].next();
             }
         }
     }
