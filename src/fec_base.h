@@ -151,7 +151,6 @@ class FecCode {
      *
      * @param context decoding context
      * @param output original data (must be of n_data length)
-     * @param props properties bound to parity fragments
      * @param offset offset in the data fragments
      * @param words input words if SYSTEMATIC must be n_data,
      *  if NON_SYSTEMATIC get_n_outputs()
@@ -159,14 +158,12 @@ class FecCode {
     virtual void decode(
         const DecodeContext<T>& context,
         vec::Vector<T>& output,
-        const std::vector<Properties>& props,
         off_t offset,
         vec::Vector<T>& words);
 
     virtual void decode(
         const DecodeContext<T>& context,
         vec::Buffers<T>& output,
-        const std::vector<Properties>& props,
         off_t offset,
         vec::Buffers<T>& words);
 
@@ -193,7 +190,8 @@ class FecCode {
         std::vector<std::ostream*> output_data_bufs);
 
     virtual std::unique_ptr<DecodeContext<T>> init_context_dec(
-        vec::Vector<T>& fragments_ids,
+        const vec::Vector<T>& fragments_ids,
+        const std::vector<Properties>& input_props,
         size_t size = 0,
         vec::Buffers<T>* output = nullptr);
 
@@ -256,7 +254,6 @@ class FecCode {
 
     virtual void decode_prepare(
         const DecodeContext<T>& context,
-        const std::vector<Properties>& props,
         off_t offset,
         vec::Vector<T>& words);
 
@@ -267,7 +264,6 @@ class FecCode {
 
     virtual void decode_prepare(
         const DecodeContext<T>& context,
-        const std::vector<Properties>& props,
         off_t offset,
         vec::Buffers<T>& words);
 
@@ -610,7 +606,8 @@ bool FecCode<T>::decode_bufs(
     vec::Vector<T> words(*(this->gf), n_words);
     vec::Vector<T> output(*(this->gf), n_data);
 
-    std::unique_ptr<DecodeContext<T>> context = init_context_dec(fragments_ids);
+    std::unique_ptr<DecodeContext<T>> context =
+        init_context_dec(fragments_ids, input_parities_props);
     while (true) {
         words.zero_fill();
         if (type == FecType::SYSTEMATIC) {
@@ -640,7 +637,7 @@ bool FecCode<T>::decode_bufs(
 
         timeval t1 = tick();
         uint64_t start = hw_timer();
-        decode(*context, output, input_parities_props, offset, words);
+        decode(*context, output, offset, words);
         uint64_t end = hw_timer();
         uint64_t t2 = hrtime_usec(t1);
 
@@ -722,12 +719,11 @@ template <typename T>
 void FecCode<T>::decode(
     const DecodeContext<T>& context,
     vec::Vector<T>& output,
-    const std::vector<Properties>& props,
     off_t offset,
     vec::Vector<T>& words)
 {
     // prepare for decoding
-    decode_prepare(context, props, offset, words);
+    decode_prepare(context, offset, words);
 
     // Lagrange interpolation
     decode_apply(context, output, words);
@@ -738,7 +734,8 @@ void FecCode<T>::decode(
  */
 template <typename T>
 std::unique_ptr<DecodeContext<T>> FecCode<T>::init_context_dec(
-    vec::Vector<T>& fragments_ids,
+    const vec::Vector<T>& fragments_ids,
+    const std::vector<Properties>& input_props,
     size_t size,
     vec::Buffers<T>* output)
 {
@@ -760,7 +757,17 @@ std::unique_ptr<DecodeContext<T>> FecCode<T>::init_context_dec(
     }
 
     return std::make_unique<DecodeContext<T>>(
-        *gf, *fft, *fft_2k, fragments_ids, vx, n_data, n, -1, size, output);
+        *gf,
+        *fft,
+        *fft_2k,
+        fragments_ids,
+        input_props,
+        vx,
+        n_data,
+        n,
+        -1,
+        size,
+        output);
 }
 
 /* Prepare for decoding
@@ -769,7 +776,6 @@ std::unique_ptr<DecodeContext<T>> FecCode<T>::init_context_dec(
 template <typename T>
 void FecCode<T>::decode_prepare(
     const DecodeContext<T>& context,
-    const std::vector<Properties>& props,
     off_t offset,
     vec::Vector<T>& words)
 {
@@ -944,8 +950,8 @@ bool FecCode<T>::decode_packet(
     vec::Buffers<uint8_t> output_char(output_len, buf_size);
     const std::vector<uint8_t*> output_mem_char = output_char.get_mem();
 
-    std::unique_ptr<DecodeContext<T>> context =
-        init_context_dec(fragments_ids, pkt_size, &output);
+    std::unique_ptr<DecodeContext<T>> context = init_context_dec(
+        fragments_ids, input_parities_props, pkt_size, &output);
 
     reset_stats_dec();
 
@@ -981,7 +987,7 @@ bool FecCode<T>::decode_packet(
 
         timeval t1 = tick();
         uint64_t start = hw_timer();
-        decode(*context, output, input_parities_props, offset, words);
+        decode(*context, output, offset, words);
         uint64_t end = hw_timer();
         uint64_t t2 = hrtime_usec(t1);
 
@@ -1013,7 +1019,6 @@ bool FecCode<T>::decode_packet(
  *
  * @param context decoding context
  * @param output must be exactly n_data
- * @param props special values dictionary must be exactly n_data
  * @param offset used to locate special values
  * @param words vector \f$v=(v_0, v_1, ..., v_{k-1})\f$, \f$k\f$ must be exactly
  * n_data
@@ -1022,12 +1027,11 @@ template <typename T>
 void FecCode<T>::decode(
     const DecodeContext<T>& context,
     vec::Buffers<T>& output,
-    const std::vector<Properties>& props,
     off_t offset,
     vec::Buffers<T>& words)
 {
     // prepare for decoding
-    decode_prepare(context, props, offset, words);
+    decode_prepare(context, offset, words);
 
     // Lagrange interpolation
     decode_apply(context, output, words);
