@@ -34,7 +34,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <string>
-#include <unordered_map>
+#include <vector>
 
 #include <sys/types.h>
 
@@ -54,29 +54,34 @@ static constexpr unsigned OOR_MARK = 1;
  */
 class Properties {
   public:
-    inline void add(const off_t loc, const uint32_t data)
+    inline void add(const size_t loc, const uint32_t data)
     {
-        props[loc] = data;
-    }
-
-    inline uint32_t get(const off_t loc) const
-    {
-        auto it = props.find(loc);
-        return it != props.end() ? it->second : 0;
+        keys.push_back(loc);
+        values.push_back(data);
+        items_nb++;
     }
 
     inline void clear()
     {
-        props.clear();
+        keys.clear();
+        values.clear();
+        items_nb = 0;
     }
 
-    std::unordered_map<off_t, uint32_t> const get_map() const
+    const std::vector<size_t>& get_keys() const
     {
-        return props;
+        return keys;
+    }
+
+    const std::vector<uint32_t>& get_values() const
+    {
+        return values;
     }
 
   private:
-    std::unordered_map<off_t, uint32_t> props;
+    std::vector<size_t> keys;
+    std::vector<uint32_t> values;
+    size_t items_nb = 0;
 
     friend std::istream& operator>>(std::istream& is, Properties& props);
     friend std::ostream& operator<<(std::ostream& os, const Properties& props);
